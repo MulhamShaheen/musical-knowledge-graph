@@ -23,7 +23,8 @@ class GraphGenerator:
         }
         self._init_ontology_triplets()
         self.individuals_set = set()
-        self.titles_map = {c : {} for c in self.ontology.classes}
+        self.titles_map = {c: {} for c in self.ontology.classes}
+        self.id_map = {c: {} for c in self.ontology.classes}
 
     def _init_ontology_triplets(self):
         for class_name in self.ontology.classes:
@@ -35,7 +36,6 @@ class GraphGenerator:
         if entity in self.rfd_dict.keys():
             return self.rfd_dict[entity]
         return self.ex[entity]
-
 
     def load_graph_from_file(self, file_name: str, format="turtle"):
         self.graph.parse(file_name, format=format)
@@ -54,17 +54,23 @@ class GraphGenerator:
             for key, value in self.ontology.properties[subject].items():
                 self.add_to_graph((subject, key, value))
 
+    def generate_id(self, class_name, individual):
+        if individual not in self.id_map[class_name]:
+            self.id_map[class_name][individual] = f"{class_name}_{len(self.id_map[class_name]) + 1}"
+        return self.id_map[class_name][individual]
+
     def add_individual(self, individual, properties: List[Tuple], class_name):
         if class_name not in self.ontology.classes:
             print(f"Class {class_name} not found in the ontology")
             return
-        if individual in self.individuals_set:
-            print(f"Individual {individual} already exists")
+        individual_id = self.generate_id(class_name, individual)
+        if individual_id in self.individuals_set:
+            print(f"Individual {individual} with {individual_id} already exists")
         else:
-            self.graph.add((self.ex[individual], RDF.type, self.ex[class_name]))
+            self.graph.add((self.ex[individual_id], RDF.type, self.ex[class_name]))
         for prop in properties:
-            self.graph.add((self.ex[individual], self.ex[prop[0]], self.ex[prop[1]]))
-        self.individuals_set.add(individual)
+            self.graph.add((self.ex[individual_id], self.ex[prop[0]], self.ex[prop[1]]))
+        self.individuals_set.add(individual_id)
 
     def serialize(self, file_name: str, format="turtle"):
         self.graph.serialize(file_name, format=format)
@@ -78,10 +84,22 @@ class GraphGenerator:
                 if class_name.lower() in row:
                     if main_class_col == class_name.lower():
                         self.add_individual(individual,
-                                            [(prop_name, clean_string_for_graph(str(row[domain]))) for prop_name, domain in props.items()
+                                            [(prop_name,
+                                              self.generate_id(class_name, clean_string_for_graph(str(row[domain])), )) for
+                                             prop_name, domain
+                                             in props.items()
                                              if domain != class_name.lower()],
                                             class_name)
                     else:
                         self.add_individual(individual, [], class_name)
 
-
+    def save_triplets(self, file_name: str):
+        with open(file_name, "w", encoding="utf-8") as f:
+            f.write("subject,predicate,object\n")
+            for s, p, o in self.graph:
+                if "#type" in str(p) or "#domain" in str(p):
+                    continue
+                s = str(s).split(":")[-1]
+                o = str(o).split(":")[-1]
+                p = str(p).split(":")[-1]
+                f.write(f"{s},{p},{o}\n")
