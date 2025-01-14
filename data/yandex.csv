@@ -1,4 +1,4 @@
-id,title,artists,album,album_id,time,playlist,lyrics,query,path
+id,song,artist,album,album_id,time,playlist,lyrics,genre,path
 106259,Группа крови,КИНО,Группа крови,10100,2025-01-12 19:19:14.546605,Лучшие песни русского рока,"Тёплое место, но улицы ждут
 Отпечатков наших ног
 Звёздная пыль на сапогах

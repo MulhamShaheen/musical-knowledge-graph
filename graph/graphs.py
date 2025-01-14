@@ -1,8 +1,10 @@
 from typing import List, Tuple
 
+import pandas as pd
 from rdflib import Graph, Namespace, RDF, RDFS, OWL
 
 from graph.ontologies import Ontology
+from graph.utils import clean_string_for_graph
 
 
 class GraphGenerator:
@@ -20,6 +22,8 @@ class GraphGenerator:
             "class": OWL.Class,
         }
         self._init_ontology_triplets()
+        self.individuals_set = set()
+        self.titles_map = {c : {} for c in self.ontology.classes}
 
     def _init_ontology_triplets(self):
         for class_name in self.ontology.classes:
@@ -31,6 +35,10 @@ class GraphGenerator:
         if entity in self.rfd_dict.keys():
             return self.rfd_dict[entity]
         return self.ex[entity]
+
+
+    def load_graph_from_file(self, file_name: str, format="turtle"):
+        self.graph.parse(file_name, format=format)
 
     def add_to_graph(self, triplet):
         triplet = [self._to_rdf_objets(t) for t in triplet]
@@ -50,9 +58,30 @@ class GraphGenerator:
         if class_name not in self.ontology.classes:
             print(f"Class {class_name} not found in the ontology")
             return
-        self.graph.add((self.ex[individual], RDF.type, self.ex[class_name]))
+        if individual in self.individuals_set:
+            print(f"Individual {individual} already exists")
+        else:
+            self.graph.add((self.ex[individual], RDF.type, self.ex[class_name]))
         for prop in properties:
             self.graph.add((self.ex[individual], self.ex[prop[0]], self.ex[prop[1]]))
+        self.individuals_set.add(individual)
 
-    def serialize(self, file_name: str):
-        self.graph.serialize(file_name, format="turtle")
+    def serialize(self, file_name: str, format="turtle"):
+        self.graph.serialize(file_name, format=format)
+
+    def load_dataset(self, csv_file: str, main_class_col: str):
+        df = pd.read_csv(csv_file)
+        props = {p_name: p["domain"].lower() for p_name, p in self.ontology.properties.items() if "domain" in p}
+        for _, row in df.iterrows():
+            for class_name in self.ontology.classes:
+                individual = clean_string_for_graph(str(row[class_name.lower()]))
+                if class_name.lower() in row:
+                    if main_class_col == class_name.lower():
+                        self.add_individual(individual,
+                                            [(prop_name, clean_string_for_graph(str(row[domain]))) for prop_name, domain in props.items()
+                                             if domain != class_name.lower()],
+                                            class_name)
+                    else:
+                        self.add_individual(individual, [], class_name)
+
+

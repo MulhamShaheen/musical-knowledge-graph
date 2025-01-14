@@ -9,8 +9,8 @@ class Ontology:
 
     properties: dict
         Dictionary of properties with their types. Examples:
-            - {"name": {"by", "type": "DatatypeProperty", "domain": "Artist"}}
-            - {"name": {"hasPart", "type": "ObjectProperty"}}
+            - {"by": {"type": "DatatypeProperty", "domain": "Artist"}}
+            - {"name": {"type": "ObjectProperty"}}
     classes: List[str]
         List of classes in the ontology. Examples:
             - ["Song", "Artist"]
